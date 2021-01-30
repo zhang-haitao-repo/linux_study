@@ -320,9 +320,9 @@ void read(){
 
 
 ==========================================================================
-git add .
-git commit -m "first commit"
-git remote rm origin
-git remote add origin .git
-git branch -M main                                                       
-git push -u origin main                                                 
+git add . <br>
+git commit -m "first commit" <br>
+git remote rm origin <br>
+git remote add origin .git <br>
+git branch -M main               <br>                                         
+git push -u origin main        <br>                                          
