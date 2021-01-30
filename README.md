@@ -247,6 +247,76 @@ clean:
 		
 ```
 
+– make -f : -f执行一个makefile文件名称, 使用make执行指定的makefile: make -f mainmak
+
+# 3 IO函数
+
+## 3.1 c语言操作文件相关问题:
+
+使用fopen函数打开一个文件, 返回一个FILE* fp, 这个指针指向的结构体有三个重要的成员.
+
+Ø 文件描述符: 通过文件描述可以找到文件的inode, 通过inode可以找到对应的数据块
+
+Ø 文件指针: 读和写共享一个文件指针, 读或者写都会引起文件指针的变化
+
+Ø 文件缓冲区: 读或者写会先通过文件缓冲区, 主要目的是为了减少对磁盘的读写次数, 提高读写磁盘的效率.
+
+![image-20210123190550271](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\image-20210123190550271.png)
+
+
+
+![image-20210123195754175](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\image-20210123195754175.png)
+
+虚拟地址空间:
+	进程的虚拟地址空间分为用户区和内核区, 其中内核区是受保护的, 用户是不能够对其进行读写操作的;
+	内核区中很重要的一个就是进程管理, 进程管理中有一个区域就是PCB(本质是一个结构体);
+	PCB中有文件描述符表, 文件描述符表中存放着打开的文件描述符, 涉及到文件的IO操作都会用到这个文件描述符.
+
+
+
+> 作业: 
+>
+> 将add.c sub.c mul.c divd.c编写makefile文件生成库文件;-----makefile的名字为mathmak, 并编写main.c主程序调用库文件的makefile, 名字为mainmak.
+
+
+
+## 3.2 c++中文件操作:
+
+### 3.2.1 读文件
+
+```c++
+#include "fstream"
+
+std::fstream ifs;
+
+void read(){
+	ifs.open("./tujiao.txt", ios::in);
+    if(!ifs.is_open())
+    {
+        cout << "file not open" << endl;
+    }
+    while(getline(ifs, buf))
+    {
+        vector<float> tokens = Split(buf,',');
+        motor_data1.push_back(tokens);
+        i++;
+    }
+    ifs.close();
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ==========================================================================
