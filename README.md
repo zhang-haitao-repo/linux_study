@@ -307,6 +307,7 @@ void read(){
 
 
 
+# 4 
 
 
 
@@ -318,11 +319,18 @@ void read(){
 
 
 
+========================================================================== <br>
 
-==========================================================================
-git add . <br>
-git commit -m "first commit" <br>
-git remote rm origin <br>
-git remote add origin .git <br>
-git branch -M main               <br>                                         
-git push -u origin main        <br>                                          
+```c++
+git add . 
+git commit -m "first commit" 
+git remote rm origin 
+git remote add origin .git 
+git branch -M main               
+git push -u origin main  
+
+// 本地代码未修改，只有master分支，直接更新
+git pull
+```
+
+​                                         
