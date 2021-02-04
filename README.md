@@ -309,7 +309,21 @@ void read(){
 
 # 4 Linux下的进程
 
-## 4.1 fork函数
+## 4.1 并发和并行
+
+- 并发，在一个时间段内, 是在同一个cpu上, 同时运行多个程序。
+  - 如：若将CPU的1S的时间分成1000个时间片，每个进程执行完一个时间片必须无条件让出CPU的使用权，这样1S中就可以执行1000个进程。
+
+- 并行性指两个或两个以上的程序在同一时刻发生(需要有多颗，与cpu核心数有关)。
+
+## 4.2 进程状态(面试考)
+
+- 进程基本的状态有5种。
+- 分别为**初始态，就绪态，运行态，挂起态与终止态**。其中初始态为进程准备阶段，常与就绪态结合来看。
+
+![image-20210204165631079](C:\Users\Administrator\AppData\Roaming\Typora\typora-user-images\image-20210204165631079.png)
+
+## 4.2 fork函数
 
 ```c
 pid_t pid = fork();   // 创建子进程
@@ -327,7 +341,13 @@ if(pid == 0)
 }
 ```
 
-## 4.2 execl函数
+**注意：对于全局变量读时共享，写时赋值**
+
+## 4.2 exec函数族
+
+> 有的时候需要在一个进程里面执行其他的命令或者是用户自定义的应用程序，此时就用到了exec函数族当中的函数。
+>
+> 使用方法一般都是在父进程里面调用fork创建处子进程，然后在子进程里面调用exec函数。
 
 - 函数原型: int execl(const char *path, const char *arg, ... /* (char  *) NULL */);
 
@@ -380,7 +400,7 @@ int main()
 
 ```
 
-## 4.3 wait函数
+## 4.3 进程回收函数（wait/waitpid）
 
 - 函数原型：
   - **pid_t wait(int *status);**
@@ -397,7 +417,46 @@ int main()
   - WIFSIGNALED(status)：为非0 → 进程异常终止
   - WTERMSIG(status)：取得进程终止的信号编号。
 
+```c
+int main()
+{
+   	pid_t pid = fork();
+    
+   	if(pid < 0)
+	{
+		printf("fork error");
+		return -1;
+	}
+	else if(pid > 0)
+	{
+		printf("father pid == [%d]\n",getpid());
+		int status;
+		pid_t wpid = wait(&status);
+		printf("wpid == [%d]\n",wpid);
+	    	if(wpid > 0)	
+		{
+			if(WIFEXITED(status))
+			{
+				printf("child exit noemal,status == [%d]\n",WEXITSTATUS(status));
+			}
+			else if(WIFSIGNALED(status))
+			{
+				printf("child exit signel,signo == [%d]\n",WTERMSIG(status));
+			}
+		}
+	}
+	if(pid == 0)
+	{
+		printf("child: pid == [%d],fpid == [%d]\n",getpid(),getppid());  
+		sleep(200);
+		
+		return 9;
+	}
+	sleep(1);
 
+	return 1;
+}
+```
 
 - 函数原型：
   - **pid_t waitpid(pid_t pid, int *status, in options);**
@@ -416,7 +475,63 @@ int main()
   - -1：无子进程
   - =0：参3为WNOHANG，且子进程正在运行。
 
+```c
+int main()
+{
+   	pid_t pid = fork();
+    
+   	if(pid < 0)
+	{
+		printf("fork error");
+		return -1;
+	}
+	else if(pid > 0)
+	{
+		printf("father pid == [%d]\n",getpid());
+		int status;
+		//pid_t wpid = waitpid(pid, &status, 0);
+		while(1)
+		{
+			// -1表示等待任意子进程，WNOHANG表示不阻塞
+			pid_t wpid = waitpid(-1, &status, WNOHANG); 
+			// printf("wpid == [%d]\n",wpid);
+			if(wpid > 0)	
+			{
+				if(WIFEXITED(status))
+				{
+					printf("child exit noemal,status == [%d]\n",WEXITSTATUS(status));
+				}
+				else if(WIFSIGNALED(status))
+				{
+					printf("child exit signel,signo == [%d]\n",WTERMSIG(status));
+				}
+			}
+			else if (wpid == 0)
+			{
+				// printf("child is living, wpid==[%d]\n",wpid);
+			}
+			else if (wpid == -1)
+			{
+				printf("no child is living,wpid == [%d]\n",wpid);
+				break;
+			}
+		}
+		
+	}
+	if(pid == 0)
+	{
+		printf("child: pid == [%d],fpid == [%d]\n",getpid(),getppid());  
+		sleep(1);
+		
+		return 9;
+	}
+	sleep(1);
 
+	return 1;
+}
+```
+
+**注意：调用一次wait或waitpid函数只能回收一个子进程。**
 
 
 
