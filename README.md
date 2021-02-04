@@ -307,7 +307,27 @@ void read(){
 
 
 
-# 4 
+# 4 Linux下的进程
+
+## 4.1 fork函数
+
+```c
+pid_t pid = fork();   // 创建子进程
+if(pid < 0)
+{
+    printf("fork error");
+}
+if(pid > 0)
+{
+    printf("father pid %d",getpid());
+}
+if(pid == 0)
+{
+    printf("child pid");
+}
+```
+
+
 
 
 
