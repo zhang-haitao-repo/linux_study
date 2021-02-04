@@ -327,9 +327,94 @@ if(pid == 0)
 }
 ```
 
+## 4.2 execl函数
+
+- 函数原型: int execl(const char *path, const char *arg, ... /* (char  *) NULL */);
+
+- 参数介绍：
+  - path: 要执行的程序的绝对路径
+  - 变参arg: 要执行的程序的需要的参数
+  - arg:占位，通常写应用程序的名字
+  - arg后面的: 命令的参数
+  - 参数写完之后: NULL
+- 返回值：若是成功，则不返回，不会再执行exec函数后面的代码；若是失败，会执行execl后面的代码，可以用perror打印错误原因。
+- execl函数一般执行自己写的程序。
+
+> 总结：
+>
+> exec函数是用一个新程序替换了当前进程的代码段、数据段、堆和栈；原有的进程空间没有发生变化，并没有创建新的进程，进程PID没有发生变化。
+
+函数练习
+
+```c
+#include "stdio.h"
+#include "stdlib.h"
+#include "unistd.h"
+#include "sys/types.h"
+
+int main()
+{
+    pid_t pid = fork();
+
+    if(pid < 0)
+    {
+        printf("fork error");
+        return -1;
+    }
+    if(pid > 0)
+    {
+        printf("father: pid == [%d],fpid == [%d]\n",getpid(),getppid());
+    }
+    if(pid == 0)
+    {
+        printf("child: pid == [%d],fpid == [%d]\n",getpid(),getppid());
+        execlp("ls","ls","-l",NULL);
+        // execlp("./1-fork","1-fork",NULL);
+        // execl("./test","test","hello",NULL);
+ 		// execlp("./test","test","hello",NULL);
+        perror("execl error");
+    }
+    sleep(1);
+    return 1;
+}
+
+```
+
+## 4.3 wait函数
+
+- 函数原型：
+  - **pid_t wait(int *status);**
+- 函数作用：
+  - 阻塞并等待子进程退出 
+  - 回收子进程残留资源 
+  - 获取子进程结束状态(退出原因)。
+- 返回值：
+  - 成功：清理掉的子进程ID；
+  - 失败：-1 (没有子进程)
+- status参数：子进程的退出状态 -- 传出参数
+  - WIFEXITED(status)：为非0    → 进程正常结束
+  - WEXITSTATUS(status)：获取进程退出状态 
+  - WIFSIGNALED(status)：为非0 → 进程异常终止
+  - WTERMSIG(status)：取得进程终止的信号编号。
 
 
 
+- 函数原型：
+  - **pid_t waitpid(pid_t pid, int *status, in options);**
+- 函数作用
+  - 同wait函数
+- 函数参数：
+- pid：
+  - pid = -1 等待任一子进程。与wait等效。
+  - pid > 0 等待其进程ID与pid相等的子进程。
+  - pid = 0 等待进程组ID与目前进程相同的任何子进程，也就是说任何和调用waitpid()函数的进程在同一个进程组的进程。
+  - pid < -1 等待其组ID等于pid的绝对值的任一子进程。(适用于子进程在其他组的情况)
+- status: 子进程的退出状态，用法同wait函数。
+- options：设置为WNOHANG，函数非阻塞，设置为0，函数阻塞。
+- 函数返回值
+  - \>0：返回回收掉的子进程ID；
+  - -1：无子进程
+  - =0：参3为WNOHANG，且子进程正在运行。
 
 
 
