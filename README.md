@@ -568,7 +568,7 @@ int main()
 3. 共享映射区（无血缘关系）
 4. 本地套接字（最稳定）
 
-## 5.2 管道
+## 5.2 无名管道
 
 管道是一种最基本的IPC机制，应用于有血缘关系的进程间通信，完成数据传递。调用pipe函数创建一个管道。
 
@@ -621,6 +621,49 @@ int main()
 命令：ulimit -a
 
 函数：long fpathconf(int fd, int name);   **long fpathconf(fd[0], _PC_PIPE_BUF); **
+
+## 5.3 命名管道
+
+FIFO常被称为命名管道，以区分pipe。管道（pipe）只能用于有血缘关系的进程间通信。但是通过FIFO，不相关的进程也能交换数据。
+
+FIFO是Linux基础文件类型中的一种（文件类型为p，可通过ls -l查看文件类型）。但FIFO文件在磁盘上没有数据块，文件大小为0，仅仅用来标识内核中一条通道。进程可以打开这个文件进行read/write，实际上是在读写内核缓冲区，这样就实现了进程间通信。
+
+### 5.3.1 FIFO完成两个进程间通信的思路
+
+进程A：
+
+- 创建fifo文件，mkfifo命令或者mkfifo函数。
+- 打开FIFO文件，open fifo文件获得文件描述符。
+- write(fd, "xxxx", ...);写fifo文件。
+- close(fd); 关闭FIFO文件。
+
+进程B：
+
+1. 打开fifo文件，获得文件描述符。
+2. 读fifo文件，read(fd, buf, sizeof(buf));
+3. 关闭fifo文件，close(fd);
+
+## 5.4 内存映射区(mmap)
+
+```c
+void *mmap(void *addr, size_t length, int port, int flags, int fd, off_t offset);
+```
+
+参数：
+
+- addr：一般传NULL，表示让内核去指定一个内存起始地址。
+- length：文件大小；
+  - lseek或者stat函数得到。
+- prot：
+  - PROT_READ  PROT_WRITE  PROT_READ|PROT_WRITE  
+- flags：
+  - MAP_SHARED：对映射区的修改会反映到文件中（可以对文件进行修改）。
+  - MAP_PRIVATE：对映射区的修改不会对文件产生影响。
+- fd：打开文件描述符
+  - fd = open();
+- offset：从文件的哪个位置开始映射，一般传0。
+
+
 
 
 
