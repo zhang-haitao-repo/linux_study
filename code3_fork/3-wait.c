@@ -19,7 +19,7 @@ int main()
 		int status;
 		pid_t wpid = wait(&status);
 		printf("wpid == [%d]\n",wpid);
-	    	if(wpid > 0)	
+	    if(wpid > 0)	
 		{
 			if(WIFEXITED(status))
 			{

@@ -1,4 +1,4 @@
-// 使用mmap进行父子进程间的通信。
+  // 使用mmap进行父子进程间的通信。
 #include "stdio.h"
 #include "stdlib.h"
 #include "string.h"
@@ -21,7 +21,7 @@ int main()
         perror("mmap error");
     }
 
-    // 创建子进程
+    // 创建子进程cd 
 	pid_t pid = fork();
     
     if(pid < 0)
@@ -32,7 +32,8 @@ int main()
 	if(pid > 0)
 	{
 		// printf("father: pid == [%d],fpid == [%d]\n",getpid(),getppid());
-        memcpy(addr, "[hello zhang HAI TAO]", strlen("[hello zhang HAI TAO]"));	
+        memcpy(addr, "[hello zhang HAI TAO]\n", strlen("[hello zhang HAI TAO]\n"));	
+		wait(NULL);
 	}
 	if(pid == 0)
 	{

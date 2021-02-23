@@ -17,6 +17,7 @@ int main(void)
 	{
 		g_var = 0;
 		printf("father pid == [%d] \t g_var == [%d]\n",getpid(),g_var);
+		sleep(100);
 	}
 	if(pid == 0)
 	{

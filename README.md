@@ -408,6 +408,10 @@ int main()
 
 ## 4.3 进程回收函数（wait/waitpid）
 
+僵尸进程：进程终止，父进程尚未回收，子进程残留资源（PCB）被存放于内核中，变成僵尸进程。
+
+孤儿进程：父进程先于子进程结束，则子进程成为孤儿进程，子进程的父进程成为init进程，称为init进程领养孤儿进程。
+
 - 函数原型：
   - **pid_t wait(int *status);**
 - 函数作用：
@@ -539,7 +543,7 @@ int main()
 
 **注意：调用一次wait或waitpid函数只能回收一个子进程。**
 
-# 5 进程间通信
+# 5 进程间通信(管道)
 
 1. 熟练使用pipe进行父子进程间通信
 
@@ -643,13 +647,103 @@ FIFO是Linux基础文件类型中的一种（文件类型为p，可通过ls -l�
 2. 读fifo文件，read(fd, buf, sizeof(buf));
 3. 关闭fifo文件，close(fd);
 
+### 5.3.2 代码段
+
+write代码:
+
+```c
+#include "stdlib.h"
+#include "stdio.h"
+#include "string.h"
+#include "unistd.h"
+#include "sys/types.h"
+#include "sys/stat.h"
+#include "fcntl.h"
+
+int main()
+{
+    // 创建fifo
+    int ret = access("./myfifo", F_OK);
+    if(ret != 0)
+    {
+        int ret = mkfifo("./myfifo", 0777);
+        if(ret < 0)
+        {
+            perror("mkfifo error");
+            return -1;
+        }
+    }
+
+    // 打开文件
+    int fd = open("./myfifo", O_RDWR);
+    if(fd < 0)
+    {
+        perror("open myfifo error");
+    }
+
+    while (1)
+    {
+        char str[64];
+
+        fgets(str, 64, stdin);
+        // 写fifo文件
+        write(fd, str, strlen(str));
+        // sleep(1);
+    }
+
+    // 关闭fifo文件
+    close(fd);
+
+    getchar();
+
+    return EXIT_SUCCESS;
+}
+```
+
+read代码：
+
+```c
+#include "stdlib.h"
+#include "stdio.h"
+#include "string.h"
+#include "unistd.h"
+#include "sys/types.h"
+#include "sys/stat.h"
+#include "fcntl.h"
+
+int main()
+{
+    // 打开文件
+    int fd = open("./myfifo", O_RDWR);
+    if(fd < 0)
+    {
+        perror("open myfifo error");
+    }
+
+    // 读fifo文件
+    char buf[64];
+    memset(buf, 0x00, sizeof(buf));
+    int n = 0;
+    while(1)
+    {
+        n = read(fd, buf, sizeof(buf));
+        printf("n:%d,s:%s\n",n, buf); 
+    }
+
+    return EXIT_SUCCESS;
+}
+```
+
 ## 5.4 内存映射区(mmap)
+
+### 5.4.1 相关函数
 
 ```c
 void *mmap(void *addr, size_t length, int port, int flags, int fd, off_t offset);
 ```
+**作用：**建立存储映射区。
 
-参数：
+**参数：**
 
 - addr：一般传NULL，表示让内核去指定一个内存起始地址。
 - length：文件大小；
@@ -663,13 +757,338 @@ void *mmap(void *addr, size_t length, int port, int flags, int fd, off_t offset)
   - fd = open();
 - offset：从文件的哪个位置开始映射，一般传0。
 
+**返回值：**映射区首地址。
+
+```c
+int munmap(void *addr, size_t length);
+```
+**作用：**释放由mmap创建的内存映射区。
+**返回值：**
+
+- 成功：返回0.
+- 失败：返回1.
+
+**参数：**
+
+- addr：调用mmap函数成功返回的映射区首地址。
+
+- length：映射区大小。（mmap函数第二个参数）。
+
+### 5.4.2 代码演示
+
+```c
+// 使用mmap进行父子进程间的通信。
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
+#include "unistd.h"
+#include "sys/types.h"
+#include "sys/wait.h"
+#include "fcntl.h"
+#include "sys/stat.h"
+#include "sys/mman.h"
+
+int main()
+{
+    int fd = open("./test.log", O_RDWR);
+    // 使用mmap函数建立共享映射区
+    int len = lseek(fd, 0, SEEK_END);
+
+    void *addr = mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    if(addr == MAP_FAILED)
+    {
+        perror("mmap error");
+    }
+
+    // 创建子进程
+	pid_t pid = fork();
+    
+    if(pid < 0)
+	{
+		printf("fork error");
+		return -1;
+	}
+	if(pid > 0)
+	{
+		// printf("father: pid == [%d],fpid == [%d]\n",getpid(),getppid());
+        memcpy(addr, "[hello zhang HAI TAO]", strlen("[hello zhang HAI TAO]"));	
+	}
+	if(pid == 0)
+	{
+		// printf("child: pid == [%d],fpid == [%d]\n",getpid(),getppid());
+        sleep(1);
+        char *p = (char*)addr;
+        printf("%s", p);
+	}
+	// sleep(1);
+
+	return 1;
+}
+```
+
+```c
+// 使用mmap进行不同进程间的通信。（写）
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
+#include "unistd.h"
+#include "sys/types.h"
+#include "sys/wait.h"
+#include "fcntl.h"
+#include "sys/stat.h"
+#include "sys/mman.h"
+
+int main()
+{
+    int fd = open("./test.log", O_RDWR);
+    // 使用mmap函数建立共享映射区
+    int len = lseek(fd, 0, SEEK_END);
+
+    void *addr = mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    if(addr == MAP_FAILED)
+    {
+        perror("mmap error");
+    }
+
+	memset(addr, 0x00, len);
+	memcpy(addr, "[hello 123456]", strlen("[hello 123456]"));	
+
+	return EXIT_SUCCESS;
+}
+```
+
+```c
+// 使用mmap进行不同进程间的通信。（读）
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
+#include "unistd.h"
+#include "sys/types.h"
+#include "sys/wait.h"
+#include "fcntl.h"
+#include "sys/stat.h"
+#include "sys/mman.h"
+
+int main()
+{
+    int fd = open("./test.log", O_RDWR);
+    // 使用mmap函数建立共享映射区
+    int len = lseek(fd, 0, SEEK_END);
+
+    void *addr = mmap(NULL, len, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+    if(addr == MAP_FAILED)
+    {
+        perror("mmap error");
+    }
+
+    char *p = (char*)addr;
+    printf("%s", p);	
+
+	return EXIT_SUCCESS;
+}
+```
+
+### 5.4.3 mmap函数建立匿名映射
+
+```c
+  // 使用mmap进行父子进程间的通信。
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
+#include "unistd.h"
+#include "sys/types.h"
+#include "sys/wait.h"
+#include "fcntl.h"
+#include "sys/stat.h"
+#include "sys/mman.h"
+
+int main()
+{
+    void *addr = mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_SHARED|MAP_ANONYMOUS, -1, 0);
+    if(addr == MAP_FAILED)
+    {
+        perror("mmap error");
+    }
+
+    // 创建子进程cd 
+	pid_t pid = fork();
+    
+    if(pid < 0)
+	{
+		printf("fork error");
+		return -1;
+	}
+	if(pid > 0)
+	{
+        memcpy(addr, "[hello zhang HAI TAO]\n", strlen("[hello zhang HAI TAO]\n"));	
+		wait(NULL);
+	}
+	if(pid == 0)
+	{
+        sleep(1);
+        char *p = (char*)addr;
+        printf("%s", p);
+	}
+
+	return 1;
+}
+```
+
+# 6 进程间通信(信号)
+
+## 6.1 学习目标
+
+- 了解信号中的基本概念
+- 熟练使用信号相关的函数
+- 参考文档使用信号集操作相关函数
+- 熟练使用信号捕捉函数signal
+- 熟练使用信号捕捉函数sigaction
+- 熟练掌握使用信号完成子进程的回收
+
+## 6.2 信号的机制
+
+### 6.2.1 基本概念
+
+**信号的概念：**
+
+信号是信息的载体，Linux/UNIX 环境下，古老、经典的通信方式， 现下依然是主要的通信手段。
+
+**信号的机制：**
+
+进程A给进程B发送信号，进程B收到信号之前执行自己的代码，收到信号后，不管执行到程序的什么位置，都要暂停运行，去处理信号，处理完毕后再继续执行。与硬件中断类似——异步模式。但信号是软件层面上实现的中断，早期常被称为“软中断”。
+
+**每个进程收到的所有信号，都是由内核负责发送的。(用户->内核->用户)**
+
+### 6.2.2 信号的状态
+
+信号有三种状态：产生、未决和递达。
+
+- **信号的产生**
+  - 按键产生，如：Ctrl+c、Ctrl+z、Ctrl+\
+  - 系统调用产生，如：kill、raise、abort
+  - 软件条件产生，如：定时器alarm
+  - 硬件异常产生，如：非法访问内存(段错误)、除0(浮点数例外)、内存对齐出错(总线错误)
+  - 命令产生，如：kill命令
+
+- 未决：产生和递达之间的状态。主要由于阻塞(屏蔽)导致该状态。 
+- 递达：递送并且到达进程。
+
+**信号的处理方式：**
+
+1. 执行默认动作。
+2. 系统调用产生，如：kill、raise、abort。
+3. 软件条件产生，如：定时器alarm。
+4. 硬件异常产生，如：非法访问内存(段错误)、除0（浮点数例外）、内存对齐出错（总线错误）。
+5. 命令产生，如：kill命令。
+
+​    Linux内核的进程控制块PCB是一个结构体，task_struct，除了包含进程id，状态，工作目录，用户id，组id，文件描述符，还包含了信号相关的信息，主要指阻塞信号集和未决信号集。
+
+- **阻塞信号集：**将某些信号加入集合，对他们设置屏蔽，当屏蔽x信号后，在收到该信号，该信号的处理将推后（解除屏蔽后）。
+- **未决信号集：**1.信号产生，未决信号集中描述该信号的位立刻翻转为1，表信号处于未决状态。当信号被处理对应位翻转回0.这一时刻往往非常短暂。2.信号产生后由于某些原因（主要是阻塞）不能抵达。
+
+**信号的编号：**
+
+查看所有信号的指令：kill -l
+
+**信号四要素：**
+
+1.编号 2.名称 3.事件 4.默认处理动作 （通过man 7 singal查看）。
+
+**相关函数**
+
+```c
+int kill(pid_t pid, int sig);
+```
+
+成功返回0，失败返回-1.
+
+pid>0：发送信号给指定进程。
+
+pid = 0：发送信号给与调用kill函数同一进程组的所有进程。
+
+pid = -1：发送信号给进程有权限发送的系统中所有进程。
+
+**alarm函数：**
+
+作用：设置定时器，在指定second后，内核会给当前进程发送14）SIGALRM信号。
+
+```c
+unsigned int alarm(unsigned int seconds);
+```
+
+返回0或剩余的秒数，无失败。
+
+**setitimer函数：**
+
+作用：设置定时器。可代替alarm函数。精度为微秒，可实现周期性定时。
+
+```c
+int setitimer(int which, const struct itimerval *new_value, struct itimerval *old_value);
+```
+
+参数：
+
+- which：指定定时方式。1.自然定时：ITIMER_REAL->14)SIGVTAALRM。2.虚拟空间定时：（用户空间）3.运行时计时：（用户+内核）。
+
+## 6.3 信号集操作
+
+内核通过读取未决信号集来判断信号是否被处理。信号屏蔽字mask可以影响未决信号集。而我们可以在应用程序中自定义set来改变mask。已达到屏蔽指定信号的目的。
+
+### 6.3.1 信号集设定
+
+```c
+sigset_t set;
+int sigemptyset(sigset_t *set);	将某个信号集清0
+int sigfillset(sigset_t *set);	将某个信号集置1
+int sigaddset(sigset_t *set, int signum);	将某个信号加入信号集
+int sigdelset(sigset_t *set, int signum);	将某个信号清出信号集
+int sigismenber(const sigset_t *set, int signum);	判断某个信号是否在信号集中。
+```
+
+**sigpromask函数：**
+
+用来屏蔽信号、解除屏蔽。其本质，读取或修改进程的信号屏蔽字（PCB中）;
+
+```c
+int sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
+```
+
+参数：
+
+- set：传入参数，是一个位图，set中哪个位置1，就表示屏蔽哪个信号。
+- oldset：传出参数，保存旧的信号屏蔽集。
+- how：参数取值：假设当前信号屏蔽字为mask。
+  - SIG_BLOCK：set表示将要屏蔽的信号。相当于mask=mask|set。
+  - SIG_UNBLOCK：set表示需要解除屏蔽的信号。相当于mask=mask&~set。
+  - SIG_SETMASK：set表示用于替代原始屏蔽集的新屏蔽集。
+
+**sigpending函数：**
+
+读取当前进程的未决信号集
+
+```c
+int sigpending(sigset_t *set);	//set传出参数。
+```
+
+练习：编写程序。把所有常规信号的未决状态打印至屏幕。
 
 
 
 
 
 
-========================================================================== <br>
+
+
+
+
+
+
+
+
+
+
+
+# 9 git操作相关
 
 ```c++
 git add . 
