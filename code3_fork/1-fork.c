@@ -24,6 +24,6 @@ int main(void)
 		printf("child pid == [%d] \t g_var == [%d]\n",getpid(),g_var);
 	}
 
-	return 1;
+	return EXIT_SUCCESS;
 }
 
