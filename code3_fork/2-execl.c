@@ -2,6 +2,7 @@
 #include "stdlib.h"
 #include "unistd.h"
 #include "sys/types.h"
+#include "sys/wait.h"
 
 int main()
 {
@@ -19,13 +20,14 @@ int main()
 	if(pid == 0)
 	{
 		printf("child: pid == [%d],fpid == [%d]\n",getpid(),getppid()); 
-		execlp("ls","ls","-l",NULL);
+		execlp("su","su","zht",NULL);
+		
 		// execlp("./1-fork","1-fork",NULL); 
 		// execl("./test","test","hello",NULL);
 		// execlp("./test","test","hello",NULL);
 		perror("execl error"); 
 	}
 	sleep(1);
-
+	wait(NULL);
 	return 1;
 }
